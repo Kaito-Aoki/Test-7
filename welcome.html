@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome Page</title>
+    <style>
+        /* Existing styles */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        textarea, input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome</h1>
+        <div id="auth-content">
+            <p>You are logged in as: <span id="user-email"></span></p>
+            <button onclick="handleSignOut()">Sign Out</button>
+        </div>
+
+        <!-- Review Form -->
+        <form id="reviewForm">
+            <h2>Submit a Review</h2>
+            <textarea id="reviewText" name="reviewText" rows="4" placeholder="Write your review here..."></textarea>
+            <label for="starRating">Rating (1-5):</label>
+            <input type="number" id="starRating" name="starRating" min="1" max="5" placeholder="Enter a rating"><br>
+            <button type="submit">Submit Review</button>
+        </form>
+
+        <div id="comments">
+            <!-- Reviews will be displayed here -->
+        </div>
+    </div>
+
+    <!-- Include Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore.js"></script>
+
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Handle user sign-out
+        function handleSignOut() {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            });
+        }
+
+        // Display user email
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('user-email').textContent = user.email;
+            }
+        });
+
+        // Capture form submission and store data in Firestore
+        document.getElementById('reviewForm').addEventListener('submit', function (e) {
+            e.preventDefault(); // Prevent form submission
+
+            const reviewText = document.getElementById('reviewText').value;
+            const starRating = parseInt(document.getElementById('starRating').value);
+            const userEmail = auth.currentUser ? auth.currentUser.email : 'Anonymous';
+
+            // Validate the form fields
+            if (reviewText && starRating >= 1 && starRating <= 5) {
+                // Add the review to Firestore
+                db.collection('reviews').add({
+                    reviewText: reviewText,
+                    starRating: starRating,
+                    author: userEmail,
+                    datePosted: new Date() // Add timestamp
+                }).then(() => {
+                    alert('Review added successfully!');
+                    // Optionally, you can clear the form fields after submission
+                    document.getElementById('reviewForm').reset();
+                }).catch((error) => {
+                    console.error('Error adding review: ', error);
+                });
+            } else {
+                alert('Please fill out both the review and a rating between 1 and 5.');
+            }
+        });
+
+        // Optionally, you can load and display reviews from Firestore in real-time
+        const commentsDiv = document.getElementById('comments');
+        db.collection('reviews').orderBy('datePosted', 'desc').onSnapshot((snapshot) => {
+            commentsDiv.innerHTML = ''; // Clear the existing reviews
+            snapshot.forEach((doc) => {
+                const reviewData = doc.data();
+                const reviewElement = document.createElement('div');
+                reviewElement.classList.add('comment');
+                reviewElement.innerHTML = `
+                    <p><strong>${reviewData.author}</strong> (${reviewData.starRating} stars)</p>
+                    <p>${reviewData.reviewText}</p>
+                    <small>Posted on ${reviewData.datePosted.toDate().toLocaleString()}</small>
+                `;
+                commentsDiv.appendChild(reviewElement);
+            });
+        });
+    </script>
+</body>
+</html>
